@@ -1,0 +1,13 @@
+algoritmo
+árvore
+busca
+computação
+dados
+estrutura
+hash
+índice
+java
+lista
+programa
+remissivo
+tabela
