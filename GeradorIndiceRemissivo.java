@@ -1,358 +1,178 @@
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.util.HashSet; // Usaremos HashSet para armazenar palavras-chave para busca rápida e eficiente
+import java.io.*;
+import java.util.*;
 
 public class GeradorIndiceRemissivo {
-    
-    // --- CLASSE PALAVRA ---
-    // Representa uma palavra encontrada no texto e suas ocorrências (linhas)
-    static class Palavra {
-        private final String palavra;
-        private final ListaEncadeada<Integer> ocorrencias; // Armazena os números das linhas onde a palavra aparece
-
-        public Palavra(String palavra, int linha) {
-            this.palavra = palavra;
-            this.ocorrencias = new ListaEncadeada<>();
-            this.ocorrencias.adicionar(linha);
-        }
-
-        public String getPalavra() {
-            return palavra;
-        }
-
-        public ListaEncadeada<Integer> getOcorrencias() {
-            return ocorrencias;
-        }
-
-        public void adicionarOcorrencia(int linha) {
-            // Verifica se a linha já foi adicionada para evitar duplicatas, embora
-            // o requisito não especifique isso, é uma boa prática.
-            // Para simplicidade, vamos apenas adicionar sem verificar duplicatas aqui.
-            this.ocorrencias.adicionar(linha);
-        }
-
-        @Override
-        public String toString() {
-            // Formato: palavra [linha1, linha2, ...]
-            return palavra + " " + ocorrencias.toString();
+    // Implementação da lista encadeada para ocorrências
+    static class NoLista {
+        int linha;
+        NoLista prox;
+        NoLista(int linha) {
+            this.linha = linha;
+            this.prox = null;
         }
     }
 
-    // --- CLASSE NO_LISTA ---
-    // Nó básico para a Lista Encadeada
-    static class NoLista<T> {
-        T elemento;
-        NoLista<T> proximo;
-
-        public NoLista(T elemento) {
-            this.elemento = elemento;
-            this.proximo = null;
-        }
-
-        public T getElemento() {
-            return elemento;
-        }
-
-        public NoLista<T> getProximo() {
-            return proximo;
-        }
-
-        public void setProximo(NoLista<T> proximo) {
-            this.proximo = proximo;
-        }
-    }
-
-    // --- CLASSE LISTA_ENCADEADA ---
-    // Implementação de uma Lista Encadeada genérica
-    static class ListaEncadeada<T> {
-        private NoLista<T> primeiro;
-        private int tamanho;
-
+    static class ListaEncadeada {
+        private NoLista inicio;
+        private NoLista fim;
         public ListaEncadeada() {
-            this.primeiro = null;
-            this.tamanho = 0;
+            this.inicio = null;
+            this.fim = null;
         }
-
-        public void adicionar(T elemento) {
-            NoLista<T> novoNo = new NoLista<>(elemento);
-            if (primeiro == null) {
-                primeiro = novoNo;
+        public void inserir(int linha) {
+            NoLista novo = new NoLista(linha);
+            if (inicio == null) {
+                inicio = novo;
+                fim = novo;
             } else {
-                NoLista<T> atual = primeiro;
-                while (atual.getProximo() != null) {
-                    atual = atual.getProximo();
-                }
-                atual.setProximo(novoNo);
+                fim.prox = novo;
+                fim = novo;
             }
-            tamanho++;
         }
-
-        public boolean estaVazia() {
-            return tamanho == 0;
-        }
-
-        public int getTamanho() {
-            return tamanho;
-        }
-
-        public NoLista<T> getPrimeiro() {
-            return primeiro;
-        }
-
-        @Override
         public String toString() {
-            StringBuilder sb = new StringBuilder("[");
-            NoLista<T> atual = primeiro;
+            StringBuilder sb = new StringBuilder();
+            NoLista atual = inicio;
+            sb.append("[");
             while (atual != null) {
-                sb.append(atual.getElemento());
-                if (atual.getProximo() != null) {
-                    sb.append(", ");
-                }
-                atual = atual.proximo;
+                sb.append(atual.linha);
+                if (atual.prox != null) sb.append(", ");
+                atual = atual.prox;
             }
             sb.append("]");
             return sb.toString();
         }
     }
 
-    // --- CLASSE NO_ABB ---
-    // Nó para a Árvore Binária de Busca
+    static class Palavra {
+        private final String palavra;
+        private final ListaEncadeada ocorrencias = new ListaEncadeada();
+        public Palavra(String palavra, int linha) {
+            this.palavra = palavra;
+            this.ocorrencias.inserir(linha);
+        }
+        public String getPalavra() { return palavra; }
+        public void adicionarOcorrencia(int linha) { this.ocorrencias.inserir(linha); }
+        @Override
+        public String toString() { return palavra + " " + ocorrencias.toString(); }
+    }
     static class NoABB {
         Palavra palavra;
-        NoABB esquerda;
-        NoABB direita;
-
+        NoABB esquerda, direita;
         public NoABB(Palavra palavra) {
             this.palavra = palavra;
-            this.esquerda = null;
-            this.direita = null;
-        }
-
-        public Palavra getPalavra() {
-            return palavra;
-        }
-
-        public void setPalavra(Palavra palavra) {
-            this.palavra = palavra;
-        }
-
-        public NoABB getEsquerda() {
-            return esquerda;
-        }
-
-        public void setEsquerda(NoABB esquerda) {
-            this.esquerda = esquerda;
-        }
-
-        public NoABB getDireita() {
-            return direita;
-        }
-
-        public void setDireita(NoABB direita) {
-            this.direita = direita;
+            this.esquerda = this.direita = null;
         }
     }
-
-    // --- CLASSE ARVORE_BINARIA_DE_BUSCA (ABB) ---
-    // Implementação da Árvore Binária de Busca
-    static class ArvoreBinariaDeBusca {
-        private NoABB raiz;
-
-        public ArvoreBinariaDeBusca() {
-            this.raiz = null;
+    static class Hash {
+        private static final int TAMANHO = 26;
+        private final NoABB[] tabela = new NoABB[TAMANHO];
+        private int hash(String palavra) {
+            if (palavra == null || palavra.isEmpty()) return -1;
+            char c = Character.toLowerCase(palavra.charAt(0));
+            return (c >= 'a' && c <= 'z') ? c - 'a' : -1;
         }
-
-        public void inserir(Palavra novaPalavra) {
-            raiz = inserirRecursivo(raiz, novaPalavra);
-        }
-
-        private NoABB inserirRecursivo(NoABB no, Palavra novaPalavra) {
-            if (no == null) {
-                return new NoABB(novaPalavra);
+        public void inserir(String palavra, int linha) {
+            int indice = hash(palavra);
+            if (indice != -1) {
+                tabela[indice] = inserirNaArvore(tabela[indice], palavra, linha);
             }
-
-            // Compara as palavras ignorando maiúsculas/minúsculas
-            int comparacao = novaPalavra.getPalavra().compareToIgnoreCase(no.getPalavra().getPalavra());
-
-            if (comparacao < 0) { // novaPalavra vem antes de no.palavra
-                no.setEsquerda(inserirRecursivo(no.getEsquerda(), novaPalavra));
-            } else if (comparacao > 0) { // novaPalavra vem depois de no.palavra
-                no.setDireita(inserirRecursivo(no.getDireita(), novaPalavra));
+        }
+        private NoABB inserirNaArvore(NoABB no, String palavra, int linha) {
+            if (no == null) {
+                return new NoABB(new Palavra(palavra, linha));
+            }
+            int comparacao = palavra.compareToIgnoreCase(no.palavra.getPalavra());
+            if (comparacao < 0) {
+                no.esquerda = inserirNaArvore(no.esquerda, palavra, linha);
+            } else if (comparacao > 0) {
+                no.direita = inserirNaArvore(no.direita, palavra, linha);
             } else {
-                // A palavra já existe na ABB, apenas adicione a nova ocorrência
-                no.getPalavra().adicionarOcorrencia(novaPalavra.getOcorrencias().getPrimeiro().getElemento());
+                no.palavra.adicionarOcorrencia(linha);
             }
             return no;
         }
-
-        public Palavra buscar(String palavraBuscada) {
-            return buscarRecursivo(raiz, palavraBuscada);
+        public Palavra buscar(String palavra) {
+            int indice = hash(palavra);
+            if (indice == -1) return null;
+            return buscarNaArvore(tabela[indice], palavra);
         }
-
-        private Palavra buscarRecursivo(NoABB no, String palavraBuscada) {
-            if (no == null) {
-                return null; // Palavra não encontrada
-            }
-
-            int comparacao = palavraBuscada.compareToIgnoreCase(no.getPalavra().getPalavra());
-
+        private Palavra buscarNaArvore(NoABB no, String palavra) {
+            if (no == null) return null;
+            int comparacao = palavra.compareToIgnoreCase(no.palavra.getPalavra());
             if (comparacao < 0) {
-                return buscarRecursivo(no.getEsquerda(), palavraBuscada);
+                return buscarNaArvore(no.esquerda, palavra);
             } else if (comparacao > 0) {
-                return buscarRecursivo(no.getDireita(), palavraBuscada);
+                return buscarNaArvore(no.direita, palavra);
             } else {
-                return no.getPalavra(); // Palavra encontrada
+                return no.palavra;
             }
         }
-
-        // Percorre a ABB em ordem (in-order traversal) e adiciona ao StringBuilder
-        // para manter a ordem alfabética
-        public void emOrdem(NoABB no, StringBuilder sb) {
-            if (no != null) {
-                emOrdem(no.getEsquerda(), sb);
-                sb.append(no.getPalavra().toString()).append("\n");
-                emOrdem(no.getDireita(), sb);
+        public StringBuilder gerarIndice() {
+            StringBuilder sb = new StringBuilder(1024);
+            for (int i = 0; i < TAMANHO; i++) {
+                percorrerEmOrdem(tabela[i], sb);
             }
-        }        public NoABB getRaiz() {
-            return raiz;
+            return sb;
         }
-    }
-    
-    // --- CLASSE TABELA_HASH ---
-    // Implementação da Tabela Hash onde cada compartimento contém uma ABB
-    static class TabelaHash {
-        private static final int TAMANHO_TABELA = 26; // Para as 26 letras do alfabeto (a-z)
-        private final ArvoreBinariaDeBusca[] tabela;
-
-        public TabelaHash() {
-            tabela = new ArvoreBinariaDeBusca[TAMANHO_TABELA];
-            // Inicializa cada compartimento da hash com uma nova ABB
-            for (int i = 0; i < TAMANHO_TABELA; i++) {
-                tabela[i] = new ArvoreBinariaDeBusca();
-            }
-        }
-
-        // Função de Hash simples: mapeia a primeira letra da palavra para um índice (0-25)
-        private int funcaoHash(String palavra) {
-            if (palavra == null || palavra.isEmpty()) {
-                return -1; // Caso de palavra inválida
-            }
-            char primeiraLetra = Character.toLowerCase(palavra.charAt(0));
-            if (primeiraLetra >= 'a' && primeiraLetra <= 'z') {
-                return primeiraLetra - 'a'; // 'a' -> 0, 'b' -> 1, ..., 'z' -> 25
-            }
-            return -1; // Para caracteres não alfabéticos ou palavras que não começam com letras
-        }
-
-        public void inserir(Palavra palavra) {
-            int indice = funcaoHash(palavra.getPalavra());
-            if (indice != -1) {
-                tabela[indice].inserir(palavra);
-            }
-        }
-
-        public Palavra buscar(String palavraBuscada) {
-            int indice = funcaoHash(palavraBuscada);
-            if (indice != -1) {
-                return tabela[indice].buscar(palavraBuscada);
-            }
-            return null; // Palavra não encontrada
-        }
-
-        // Gera o índice remissivo completo percorrendo todas as ABBs em ordem
-        public String gerarIndiceCompletoOrdenado() {
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < TAMANHO_TABELA; i++) {
-                // Chama o percurso em ordem para cada ABB
-                tabela[i].emOrdem(tabela[i].getRaiz(), sb);
-            }
-            return sb.toString();
+        private void percorrerEmOrdem(NoABB no, StringBuilder sb) {
+            if (no == null) return;
+            percorrerEmOrdem(no.esquerda, sb);
+            sb.append(no.palavra.toString()).append('\n');
+            percorrerEmOrdem(no.direita, sb);
         }
     }
-
-    // --- MÉTODO MAIN (CLASSE PRINCIPAL) ---
     public static void main(String[] args) {
-        TabelaHash indicePrincipal = new TabelaHash();
-        // Usamos HashSet para armazenar as palavras-chave para uma busca O(1)
-        HashSet<String> palavrasChave = new HashSet<>();
-
-        // 1. Ler arquivo de palavras-chave
-        String arquivoPalavrasChave = "palavras_chave.txt"; // Certifique-se de que este arquivo exista
-        System.out.println("Lendo palavras-chave do arquivo: " + arquivoPalavrasChave);
-        try (BufferedReader br = new BufferedReader(new FileReader(arquivoPalavrasChave))) {
+        Hash indice = new Hash();
+        Set<String> palavrasChave = new HashSet<>();
+        try (BufferedReader br = new BufferedReader(new FileReader("palavras_chave.txt"), 8192)) {
             String linha;
             while ((linha = br.readLine()) != null) {
-                palavrasChave.add(linha.trim().toLowerCase()); // Converte para minúsculas e remove espaços em branco
+                if (!linha.trim().isEmpty()) {
+                    palavrasChave.add(linha.trim().toLowerCase());
+                }
             }
             System.out.println("Palavras-chave carregadas: " + palavrasChave.size());
         } catch (IOException e) {
-            System.err.println("Erro ao ler o arquivo de palavras-chave. Verifique se o arquivo existe e tem permissão de leitura.");
-            System.err.println("Erro: " + e.getMessage());
-            return; // Encerra o programa se não conseguir ler as palavras-chave
+            System.err.println("Erro ao ler palavras-chave: " + e.getMessage());
+            return;
         }
-
-        // 2. Ler arquivo de texto e processar as palavras
-        String arquivoTexto = "texto.txt"; // Certifique-se de que este arquivo exista
-        System.out.println("Processando texto do arquivo: " + arquivoTexto);
-        int numeroLinha = 0;
-        try (BufferedReader br = new BufferedReader(new FileReader(arquivoTexto))) {
+        try (BufferedReader br = new BufferedReader(new FileReader("texto.txt"), 8192)) {
             String linha;
+            int numLinha = 0;
             while ((linha = br.readLine()) != null) {
-                numeroLinha++;
-                // Limpa a linha: remove caracteres não alfabéticos e divide em palavras
-                // A expressão regular permite letras com acentos (português)
-                String[] palavrasNaLinha = linha.replaceAll("[^a-zA-ZáàãâéêíóôõúüçÁÀÃÂÉÊÍÓÔÕÚÜÇ ]", " ").toLowerCase().split("\\s+");
-
-                for (String p : palavrasNaLinha) {
-                    if (!p.isEmpty()) { // Garante que não estamos processando strings vazias
-                        Palavra palavraExistente = indicePrincipal.buscar(p);
-                        if (palavraExistente != null) {
-                            // Se a palavra já existe na estrutura, apenas adiciona a nova ocorrência
-                            palavraExistente.adicionarOcorrencia(numeroLinha);
+                numLinha++;
+                for (String palavra : linha.replaceAll("[^a-zA-ZáàãâéêíóôõúüçÁÀÃÂÉÊÍÓÔÕÚÜÇ ]", " ")
+                        .toLowerCase().split("\\s+")) {
+                    if (!palavra.isEmpty()) {
+                        Palavra p = indice.buscar(palavra);
+                        if (p != null) {
+                            p.adicionarOcorrencia(numLinha);
                         } else {
-                            // Se a palavra não existe, cria uma nova Palavra e a insere na Tabela Hash
-                            indicePrincipal.inserir(new Palavra(p, numeroLinha));
+                            indice.inserir(palavra, numLinha);
                         }
                     }
                 }
             }
-            System.out.println("Texto processado. Total de linhas: " + numeroLinha);
+            System.out.println("Texto processado. Total de linhas: " + numLinha);
         } catch (IOException e) {
-            System.err.println("Erro ao ler o arquivo de texto. Verifique se o arquivo existe e tem permissão de leitura.");
-            System.err.println("Erro: " + e.getMessage());
-            return; // Encerra o programa se não conseguir ler o texto
+            System.err.println("Erro ao processar texto: " + e.getMessage());
+            return;
         }
-
-        // 3. Gerar o índice remissivo final, filtrando apenas pelas palavras-chave
-        System.out.println("Gerando índice remissivo...");
-        StringBuilder indiceFinal = new StringBuilder();
-        // Obtém todas as palavras processadas da Tabela Hash, já em ordem alfabética
-        String indiceBruto = indicePrincipal.gerarIndiceCompletoOrdenado();
-        String[] linhasIndice = indiceBruto.split("\n");
-
-        for (String linhaIndice : linhasIndice) {
-            if (linhaIndice.isEmpty()) {
-                continue;
-            }
-            // Extrai a palavra (a parte antes do primeiro espaço)
-            String palavraDoIndice = linhaIndice.split(" ")[0];
-            // Verifica se a palavra é uma das palavras-chave
-            if (palavrasChave.contains(palavraDoIndice)) {
-                indiceFinal.append(linhaIndice).append("\n");
+        StringBuilder resultado = new StringBuilder(1024);
+        String[] linhas = indice.gerarIndice().toString().split("\n");
+        for (String linha : linhas) {
+            if (!linha.isEmpty()) {
+                String palavraAtual = linha.split(" ")[0];
+                if (palavrasChave.contains(palavraAtual)) {
+                    resultado.append(linha).append('\n');
+                }
             }
         }
-
-        // 4. Salvar o índice remissivo em um arquivo de saída
-        String arquivoSaida = "indice_remissivo.txt";
-        System.out.println("Salvando índice remissivo em: " + arquivoSaida);
-        try (FileWriter fw = new FileWriter(arquivoSaida)) {
-            fw.write(indiceFinal.toString());
-            System.out.println("Índice remissivo gerado e salvo com sucesso!");
+        try (FileWriter fw = new FileWriter("indice_remissivo.txt")) {
+            fw.write(resultado.toString());
+            System.out.println("Índice remissivo gerado com sucesso!");
         } catch (IOException e) {
-            System.err.println("Erro ao escrever o arquivo de saída.");
-            System.err.println("Erro: " + e.getMessage());
+            System.err.println("Erro ao salvar índice: " + e.getMessage());
         }
     }
 }
