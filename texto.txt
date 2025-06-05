@@ -1,10 +1,7 @@
-A leitura é uma ferramenta poderosa para o desenvolvimento pessoal.
-Ela estimula a imaginação e amplia o vocabulário.
-Ler com frequência melhora a escrita e a capacidade de interpretação.
-Os livros também ajudam a conhecer novas culturas e ideias.
-A leitura pode ser uma forma de lazer e aprendizado ao mesmo tempo.
-Criar o hábito de ler desde cedo traz muitos benefícios ao longo da vida.
-Bibliotecas e livrarias são espaços importantes para incentivar esse hábito.
-A tecnologia também facilita o acesso a livros digitais e audiolivros.
-É essencial escolher temas que despertem interesse e curiosidade.
-Ler é um caminho para o conhecimento e o crescimento intelectual.
+Good programming is not learned from
+generalities, but by by seeing how significant
+programs can be made clean, easy to
+read, easy to maintain and modify,
+human-engineered, efficient, and reliable,
+by the application of common sense and
+by the use of good programming arvores practices.

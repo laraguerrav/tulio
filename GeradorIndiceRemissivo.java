@@ -2,7 +2,6 @@ import java.io.*;
 import java.util.*;
 
 public class GeradorIndiceRemissivo {
-    // Implementação da lista encadeada para ocorrências
     static class NoLista {
         int linha;
         NoLista prox;
@@ -55,17 +54,72 @@ public class GeradorIndiceRemissivo {
         @Override
         public String toString() { return palavra + " " + ocorrencias.toString(); }
     }
-    static class NoABB {
-        Palavra palavra;
-        NoABB esquerda, direita;
-        public NoABB(Palavra palavra) {
-            this.palavra = palavra;
-            this.esquerda = this.direita = null;
+    // Árvore Binária de Busca (ABB)
+    static class ArvoreBinariaDeBusca {
+        static class NoABB {
+            Palavra palavra;
+            NoABB esquerda, direita;
+            public NoABB(Palavra palavra) {
+                this.palavra = palavra;
+                this.esquerda = null;
+                this.direita = null;
+            }
+        }
+        private NoABB raiz;
+        public ArvoreBinariaDeBusca() {
+            this.raiz = null;
+        }
+        public void inserir(String palavra, int linha) {
+            raiz = inserirNaArvore(raiz, palavra, linha);
+        }
+        private NoABB inserirNaArvore(NoABB no, String palavra, int linha) {
+            if (no == null) {
+                return new NoABB(new Palavra(palavra, linha));
+            }
+            int cmp = palavra.compareToIgnoreCase(no.palavra.getPalavra());
+            if (cmp < 0) {
+                no.esquerda = inserirNaArvore(no.esquerda, palavra, linha);
+            } else if (cmp > 0) {
+                no.direita = inserirNaArvore(no.direita, palavra, linha);
+            } else {
+                no.palavra.adicionarOcorrencia(linha);
+            }
+            return no;
+        }
+        public Palavra buscar(String palavra) {
+            return buscarNaArvore(raiz, palavra);
+        }
+        private Palavra buscarNaArvore(NoABB no, String palavra) {
+            if (no == null) return null;
+            int cmp = palavra.compareToIgnoreCase(no.palavra.getPalavra());
+            if (cmp < 0) {
+                return buscarNaArvore(no.esquerda, palavra);
+            } else if (cmp > 0) {
+                return buscarNaArvore(no.direita, palavra);
+            } else {
+                return no.palavra;
+            }
+        }
+        // Adapta percurso em ordem para array
+        public void percorrerEmOrdem(StringBuilder sb, String[] palavrasChave) {
+            percorrerEmOrdem(raiz, sb, palavrasChave);
+        }
+        private void percorrerEmOrdem(NoABB no, StringBuilder sb, String[] palavrasChave) {
+            if (no == null) return;
+            percorrerEmOrdem(no.esquerda, sb, palavrasChave);
+            String palavraAtual = no.palavra.getPalavra();
+            for (String chave : palavrasChave) {
+                if (palavraAtual.equals(chave)) {
+                    sb.append(no.palavra.toString()).append('\n');
+                    break;
+                }
+            }
+            percorrerEmOrdem(no.direita, sb, palavrasChave);
         }
     }
     static class Hash {
         private static final int TAMANHO = 26;
-        private final NoABB[] tabela = new NoABB[TAMANHO];
+        private final ArvoreBinariaDeBusca[] tabela = new ArvoreBinariaDeBusca[TAMANHO];
         private int hash(String palavra) {
             if (palavra == null || palavra.isEmpty()) return -1;
             char c = Character.toLowerCase(palavra.charAt(0));
@@ -74,64 +128,40 @@ public class GeradorIndiceRemissivo {
         public void inserir(String palavra, int linha) {
             int indice = hash(palavra);
             if (indice != -1) {
-                tabela[indice] = inserirNaArvore(tabela[indice], palavra, linha);
+                if (tabela[indice] == null) tabela[indice] = new ArvoreBinariaDeBusca();
+                tabela[indice].inserir(palavra, linha);
             }
-        }
-        private NoABB inserirNaArvore(NoABB no, String palavra, int linha) {
-            if (no == null) {
-                return new NoABB(new Palavra(palavra, linha));
-            }
-            int comparacao = palavra.compareToIgnoreCase(no.palavra.getPalavra());
-            if (comparacao < 0) {
-                no.esquerda = inserirNaArvore(no.esquerda, palavra, linha);
-            } else if (comparacao > 0) {
-                no.direita = inserirNaArvore(no.direita, palavra, linha);
-            } else {
-                no.palavra.adicionarOcorrencia(linha);
-            }
-            return no;
         }
         public Palavra buscar(String palavra) {
             int indice = hash(palavra);
-            if (indice == -1) return null;
-            return buscarNaArvore(tabela[indice], palavra);
+            if (indice == -1 || tabela[indice] == null) return null;
+            return tabela[indice].buscar(palavra);
         }
-        private Palavra buscarNaArvore(NoABB no, String palavra) {
-            if (no == null) return null;
-            int comparacao = palavra.compareToIgnoreCase(no.palavra.getPalavra());
-            if (comparacao < 0) {
-                return buscarNaArvore(no.esquerda, palavra);
-            } else if (comparacao > 0) {
-                return buscarNaArvore(no.direita, palavra);
-            } else {
-                return no.palavra;
-            }
-        }
-        public StringBuilder gerarIndice() {
+        // Adapta método gerarIndice para aceitar array de palavras-chave
+        public StringBuilder gerarIndice(String[] palavrasChave) {
             StringBuilder sb = new StringBuilder(1024);
             for (int i = 0; i < TAMANHO; i++) {
-                percorrerEmOrdem(tabela[i], sb);
+                if (tabela[i] != null) tabela[i].percorrerEmOrdem(sb, palavrasChave);
             }
             return sb;
-        }
-        private void percorrerEmOrdem(NoABB no, StringBuilder sb) {
-            if (no == null) return;
-            percorrerEmOrdem(no.esquerda, sb);
-            sb.append(no.palavra.toString()).append('\n');
-            percorrerEmOrdem(no.direita, sb);
         }
     }
     public static void main(String[] args) {
         Hash indice = new Hash();
-        Set<String> palavrasChave = new HashSet<>();
+        // Troca HashSet por array de palavras-chave
+        String[] palavrasChave;
+        int totalPalavrasChave = 0;
         try (BufferedReader br = new BufferedReader(new FileReader("palavras_chave.txt"), 8192)) {
+            List<String> listaTemp = new ArrayList<>();
             String linha;
             while ((linha = br.readLine()) != null) {
                 if (!linha.trim().isEmpty()) {
-                    palavrasChave.add(linha.trim().toLowerCase());
+                    listaTemp.add(linha.trim().toLowerCase());
                 }
             }
-            System.out.println("Palavras-chave carregadas: " + palavrasChave.size());
+            palavrasChave = listaTemp.toArray(new String[0]);
+            totalPalavrasChave = palavrasChave.length;
+            System.out.println("Palavras-chave carregadas: " + totalPalavrasChave);
         } catch (IOException e) {
             System.err.println("Erro ao ler palavras-chave: " + e.getMessage());
             return;
@@ -141,15 +171,25 @@ public class GeradorIndiceRemissivo {
             int numLinha = 0;
             while ((linha = br.readLine()) != null) {
                 numLinha++;
-                for (String palavra : linha.replaceAll("[^a-zA-ZáàãâéêíóôõúüçÁÀÃÂÉÊÍÓÔÕÚÜÇ ]", " ")
-                        .toLowerCase().split("\\s+")) {
+                String linhaLimpa = linha.toLowerCase().replaceAll("[^a-záàãâéêíóôõúüç -]", " ");
+                Set<String> palavrasUnicasLinha = new HashSet<>();
+                for (String palavra : linhaLimpa.split("\\s+")) {
                     if (!palavra.isEmpty()) {
-                        Palavra p = indice.buscar(palavra);
-                        if (p != null) {
-                            p.adicionarOcorrencia(numLinha);
-                        } else {
-                            indice.inserir(palavra, numLinha);
+                        String palavraBase = palavra;
+                        if (palavraBase.endsWith("es") && palavraBase.length() > 2) {
+                            palavraBase = palavraBase.substring(0, palavraBase.length() - 2);
+                        } else if (palavraBase.endsWith("s") && palavraBase.length() > 1) {
+                            palavraBase = palavraBase.substring(0, palavraBase.length() - 1);
                         }
+                        palavrasUnicasLinha.add(palavraBase);
+                    }
+                }
+                for (String palavraBase : palavrasUnicasLinha) {
+                    Palavra p = indice.buscar(palavraBase);
+                    if (p != null) {
+                        p.adicionarOcorrencia(numLinha);
+                    } else {
+                        indice.inserir(palavraBase, numLinha);
                     }
                 }
             }
@@ -158,16 +198,8 @@ public class GeradorIndiceRemissivo {
             System.err.println("Erro ao processar texto: " + e.getMessage());
             return;
         }
-        StringBuilder resultado = new StringBuilder(1024);
-        String[] linhas = indice.gerarIndice().toString().split("\n");
-        for (String linha : linhas) {
-            if (!linha.isEmpty()) {
-                String palavraAtual = linha.split(" ")[0];
-                if (palavrasChave.contains(palavraAtual)) {
-                    resultado.append(linha).append('\n');
-                }
-            }
-        }
+        // Corrige chamada para gerarIndice e remove variáveis não utilizadas
+        StringBuilder resultado = indice.gerarIndice(palavrasChave);
         try (FileWriter fw = new FileWriter("indice_remissivo.txt")) {
             fw.write(resultado.toString());
             System.out.println("Índice remissivo gerado com sucesso!");
