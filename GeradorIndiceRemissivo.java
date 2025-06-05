@@ -1,5 +1,4 @@
 import java.io.*;
-import java.util.*;
 
 public class GeradorIndiceRemissivo {
     static class NoLista {
@@ -148,31 +147,34 @@ public class GeradorIndiceRemissivo {
     }
     public static void main(String[] args) {
         Hash indice = new Hash();
-        // Troca HashSet por array de palavras-chave
+        // Troca HashSet e ArrayList por array manual para palavras únicas na linha
         String[] palavrasChave;
-        int totalPalavrasChave = 0;
-        try (BufferedReader br = new BufferedReader(new FileReader("palavras_chave.txt"), 8192)) {
-            List<String> listaTemp = new ArrayList<>();
+        try {
+            BufferedReader br = new BufferedReader(new FileReader("palavras_chave.txt"), 8192);
+            String[] temp = new String[100];
+            int count = 0;
             String linha;
             while ((linha = br.readLine()) != null) {
                 if (!linha.trim().isEmpty()) {
-                    listaTemp.add(linha.trim().toLowerCase());
+                    temp[count++] = linha.trim().toLowerCase();
                 }
             }
-            palavrasChave = listaTemp.toArray(new String[0]);
-            totalPalavrasChave = palavrasChave.length;
-            System.out.println("Palavras-chave carregadas: " + totalPalavrasChave);
-        } catch (IOException e) {
+            br.close();
+            palavrasChave = new String[count];
+            for (int i = 0; i < count; i++) palavrasChave[i] = temp[i];
+        } catch (Exception e) {
             System.err.println("Erro ao ler palavras-chave: " + e.getMessage());
             return;
         }
-        try (BufferedReader br = new BufferedReader(new FileReader("texto.txt"), 8192)) {
+        try {
+            BufferedReader br = new BufferedReader(new FileReader("texto.txt"), 8192);
             String linha;
             int numLinha = 0;
             while ((linha = br.readLine()) != null) {
                 numLinha++;
                 String linhaLimpa = linha.toLowerCase().replaceAll("[^a-záàãâéêíóôõúüç -]", " ");
-                Set<String> palavrasUnicasLinha = new HashSet<>();
+                String[] palavrasUnicasLinha = new String[100];
+                int unicasCount = 0;
                 for (String palavra : linhaLimpa.split("\\s+")) {
                     if (!palavra.isEmpty()) {
                         String palavraBase = palavra;
@@ -181,10 +183,20 @@ public class GeradorIndiceRemissivo {
                         } else if (palavraBase.endsWith("s") && palavraBase.length() > 1) {
                             palavraBase = palavraBase.substring(0, palavraBase.length() - 1);
                         }
-                        palavrasUnicasLinha.add(palavraBase);
+                        boolean jaTem = false;
+                        for (int i = 0; i < unicasCount; i++) {
+                            if (palavrasUnicasLinha[i].equals(palavraBase)) {
+                                jaTem = true;
+                                break;
+                            }
+                        }
+                        if (!jaTem) {
+                            palavrasUnicasLinha[unicasCount++] = palavraBase;
+                        }
                     }
                 }
-                for (String palavraBase : palavrasUnicasLinha) {
+                for (int i = 0; i < unicasCount; i++) {
+                    String palavraBase = palavrasUnicasLinha[i];
                     Palavra p = indice.buscar(palavraBase);
                     if (p != null) {
                         p.adicionarOcorrencia(numLinha);
@@ -193,17 +205,19 @@ public class GeradorIndiceRemissivo {
                     }
                 }
             }
+            br.close();
             System.out.println("Texto processado. Total de linhas: " + numLinha);
-        } catch (IOException e) {
+        } catch (Exception e) {
             System.err.println("Erro ao processar texto: " + e.getMessage());
             return;
         }
-        // Corrige chamada para gerarIndice e remove variáveis não utilizadas
         StringBuilder resultado = indice.gerarIndice(palavrasChave);
-        try (FileWriter fw = new FileWriter("indice_remissivo.txt")) {
+        try {
+            FileWriter fw = new FileWriter("indice_remissivo.txt");
             fw.write(resultado.toString());
+            fw.close();
             System.out.println("Índice remissivo gerado com sucesso!");
-        } catch (IOException e) {
+        } catch (Exception e) {
             System.err.println("Erro ao salvar índice: " + e.getMessage());
         }
     }
